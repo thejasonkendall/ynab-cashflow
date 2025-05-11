@@ -1,19 +1,17 @@
 import os
-import json #remove later
 import requests
 from datetime import datetime, date
 import calendar
-from twilio.rest import Client
+import boto3  # AWS SDK for Python
 
 # Set variables 
 YNAB_BASE_URL = "https://api.ynab.com/v1"
 YNAB_API_KEY = os.environ.get("YNAB_API_KEY")
 YNAB_BUDGET_ID = os.environ.get("YNAB_BUDGET_ID")
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
-YOUR_PHONE_NUMBER = os.environ.get("YOUR_PHONE_NUMBER")
-
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.environ.get("AWS_REGION")
 
 # Check env variables
 if YNAB_API_KEY is None:
@@ -22,17 +20,18 @@ if YNAB_API_KEY is None:
 if YNAB_BUDGET_ID is None:
     raise ValueError("YNAB_BUDGET_ID environment variable is not set")
 
-if TWILIO_ACCOUNT_SID is None:
-    raise ValueError("TWILIO_ACCOUNT_SID environment variable is not set")
+if SNS_TOPIC_ARN is None:
+    raise ValueError("SNS_TOPIC_ARN environment variable is not set")
 
-if TWILIO_AUTH_TOKEN is None:
-    raise ValueError("TWILIO_AUTH_TOKEN environment variable is not set")
+if AWS_ACCESS_KEY_ID is None:
+    raise ValueError("AWS_ACCESS_KEY_ID environment variable is not set")
 
-if TWILIO_PHONE_NUMBER is None:
-    raise ValueError("TWILIO_PHONE_NUMBER environment variable is not set")
+if AWS_SECRET_ACCESS_KEY is None:
+    raise ValueError("AWS_SECRET_ACCESS_KEY environment variable is not set")
 
-if YOUR_PHONE_NUMBER is None:
-    raise ValueError("YOUR_PHONE_NUMBERID environment variable is not set")
+if AWS_REGION is None:
+    raise ValueError("AWS_REGION environment variable is not set")
+
 
 # Get cash flow function
 def get_monthly_cashflow(budget_id):
@@ -71,19 +70,30 @@ def get_monthly_cashflow(budget_id):
         "cashflow": cashflow
     }
 
-# Send text message function
+# Send text message function - updated to use AWS SNS
 def send_text_message(message):
-    print("I would sent it!")
-    """Send text message via Twilio."""
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    
-    message = client.messages.create(
-        body=message,
-        from_=TWILIO_PHONE_NUMBER,
-        to=YOUR_PHONE_NUMBER
+    """Send text message via AWS SNS."""
+    # Create an SNS client
+    sns = boto3.client(
+        'sns',
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY
     )
     
-    return message.sid
+    subject = "Test Notification"
+    
+    # Publish the message to the topic
+    try:
+        response = sns.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Message=message,
+            Subject=subject
+        )
+        print(f"Message published successfully! Message ID: {response['MessageId']}")
+    except Exception as e:
+        print(f"Error publishing message: {e}")
+
 
 def main():
     try:
@@ -102,8 +112,8 @@ def main():
         print(message)
         
         # Send text message
-        send_text_message(message)
-        print("Message sent successfully!")
+        message_id = send_text_message(message)
+        print(f"Message sent successfully! Message ID: {message_id}")
         
     except Exception as e:
         print(f"Error: {e}")
