@@ -1,0 +1,4 @@
+k8s/mongo-secret.yaml
+venv/
+ENV/
+env/
