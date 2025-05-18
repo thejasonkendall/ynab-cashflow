@@ -3,3 +3,4 @@ venv/
 ENV/
 env/
 ynab_cron.log
+run.sh
